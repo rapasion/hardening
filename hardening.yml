@@ -1,6 +1,6 @@
 ---
 - name: RHEL 7 baseline hardening
-  hosts: rhel7
+  hosts: all
   become: yes
   gather_facts: yes
 
