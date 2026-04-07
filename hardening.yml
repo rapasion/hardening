@@ -257,8 +257,19 @@
         src: report.j2
         dest: reports/report.html
       delegate_to: localhost
-      run_once: true  
-  
+      run_once: true
+
+    - name: Send hardening report via email
+      mail:
+        host: 192.168.153.130
+        port: 587
+        username: richardp.asion18@@gmail.com
+        password: idex imxj bbnq avlk
+        to: richard.pasion18@gmail.com
+        subject: "RHEL 7 Hardening Report"
+        subtype: html
+        body: "{{ lookup('file', 'reports/report.html') }}"
+      delegate_to: localhost
 
   #handlers:
   #  - name: restart auditd
