@@ -256,6 +256,8 @@
       template:
         src: report.j2
         dest: reports/report.html
+      delegate_to: localhost
+      run_once: true  
   
 
   #handlers:
