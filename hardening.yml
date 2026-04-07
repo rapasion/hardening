@@ -62,13 +62,12 @@
     - name: Ensure /tmp is mounted with secure options (if separate partition)
       mount:
         path: /tmp
-        src: "{{ item.src | default(omit) }}"
-        fstype: "{{ item.fstype | default(omit) }}"
+        src: "{{ item.src }}"
+        fstype: "{{ item.fstype }}"
         opts: "defaults,nodev,nosuid,noexec"
         state: mounted
-      when: ansible_mounts | selectattr('mount', 'equalto', '/tmp') | list | length > 0
-      vars:
-        item: "{{ (ansible_mounts | selectattr('mount', 'equalto', '/tmp') | list)[0] }}"
+      loop: "{{ ansible_mounts }}"
+      when: item.mount == '/tmp'
 
     - name: Restrict world-writable directories with sticky bit
       command: find / -xdev -type d -perm -0002 -exec chmod o+t {} \;
