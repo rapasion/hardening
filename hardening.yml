@@ -1,18 +1,16 @@
 ---
 - name: RHEL 7 baseline hardening
-  hosts: rhel7
+  hosts: all
   become: yes
   gather_facts: yes
 
   vars:
-    # --- Account / password policy ---
     password_max_days: 90
     password_min_days: 1
     password_warn_age: 7
     password_min_len: 14
     password_retry: 3
 
-    # --- SSH settings ---
     sshd_config_path: /etc/ssh/sshd_config
     sshd_port: 22
     sshd_permit_root_login: "no"
@@ -21,7 +19,6 @@
     sshd_idle_timeout: 300
     sshd_max_auth_tries: 3
 
-    # --- Sysctl / kernel hardening ---
     sysctl_settings:
       net.ipv4.ip_forward: 0
       net.ipv4.conf.all.send_redirects: 0
@@ -43,222 +40,219 @@
     # 1. Package and update baseline
     # ------------------------------------------------------------
     - name: Ensure system is up to date
-    yum:
-      name: "*"
-      state: latest
+      yum:
+        name: "*"
+        state: latest
 
     - name: Install baseline security packages
-    yum:
-      name:
-        - aide
-        - audit
-        - audit-libs
-        - rsyslog
-        - chrony
-        - firewalld
-        - sudo
-      state: present
+      yum:
+        name:
+          - aide
+          - audit
+          - audit-libs
+          - rsyslog
+          - chrony
+          - firewalld
+          - sudo
+        state: present
 
     # ------------------------------------------------------------
     # 2. Filesystem and permissions basics
     # ------------------------------------------------------------
     - name: Ensure /tmp is mounted with secure options (if separate partition)
-    mount:
-      path: /tmp
-      src: "{{ item.src | default(omit) }}"
-      fstype: "{{ item.fstype | default(omit) }}"
-      opts: "defaults,nodev,nosuid,noexec"
-      state: mounted
-    when: ansible_mounts | selectattr('mount', 'equalto', '/tmp') | list | length > 0
-    vars:
-      item: "{{ (ansible_mounts | selectattr('mount', 'equalto', '/tmp') | list)[0] }}"
+      mount:
+        path: /tmp
+        src: "{{ item.src }}"
+        fstype: "{{ item.fstype }}"
+        opts: "defaults,nodev,nosuid,noexec"
+        state: mounted
+      loop: "{{ ansible_mounts }}"
+      when: item.mount == '/tmp'
 
     - name: Restrict world-writable directories with sticky bit
-    command: find / -xdev -type d -perm -0002 -exec chmod o+t {} \;
-    changed_when: false
+      command: find / -xdev -type d -perm -0002 -exec chmod o+t {} \;
+      changed_when: false
 
     # ------------------------------------------------------------
     # 3. Password and authentication policy
     # ------------------------------------------------------------
     - name: Configure password aging in /etc/login.defs
-    lineinfile:
-      path: /etc/login.defs
-      regexp: "^{{ item.key }}\s+"
-      line: "{{ item.key }}   {{ item.value }}"
-      state: present
-    loop:
-      - { key: PASS_MAX_DAYS, value: "{{ password_max_days }}" }
-      - { key: PASS_MIN_DAYS, value: "{{ password_min_days }}" }
-      - { key: PASS_WARN_AGE, value: "{{ password_warn_age }}" }
+      lineinfile:
+        path: /etc/login.defs
+        regexp: "^{{ item.key }}\\s+"
+        line: "{{ item.key }}   {{ item.value }}"
+        state: present
+      loop:
+        - { key: PASS_MAX_DAYS, value: "{{ password_max_days }}" }
+        - { key: PASS_MIN_DAYS, value: "{{ password_min_days }}" }
+        - { key: PASS_WARN_AGE, value: "{{ password_warn_age }}" }
 
     - name: Enforce password complexity via pam_pwquality
-    lineinfile:
-      path: /etc/security/pwquality.conf
-      regexp: "^{{ item.key }}\s*="
-      line: "{{ item.key }} = {{ item.value }}"
-      state: present
-    loop:
-      - { key: minlen, value: "{{ password_min_len }}" }
-      - { key: dcredit, value: "-1" }
-      - { key: ucredit, value: "-1" }
-      - { key: lcredit, value: "-1" }
-      - { key: ocredit, value: "-1" }
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: "^{{ item.key }}\\s*="
+        line: "{{ item.key }} = {{ item.value }}"
+        state: present
+      loop:
+        - { key: minlen, value: "{{ password_min_len }}" }
+        - { key: dcredit, value: "-1" }
+        - { key: ucredit, value: "-1" }
+        - { key: lcredit, value: "-1" }
+        - { key: ocredit, value: "-1" }
 
     - name: Limit password retry attempts in system-auth
-    replace:
-      path: /etc/pam.d/system-auth
-      regexp: 'pam_pwquality.so.*'
-      replace: 'password    requisite     pam_pwquality.so try_first_pass local_users_only retry={{ password_retry }} authtok_type='
+      replace:
+        path: /etc/pam.d/system-auth
+        regexp: 'pam_pwquality.so.*'
+        replace: 'password    requisite     pam_pwquality.so try_first_pass local_users_only retry={{ password_retry }} authtok_type='
 
     # ------------------------------------------------------------
     # 4. SSH hardening
     # ------------------------------------------------------------
     - name: Ensure SSH server is installed
-    yum:
-      name: openssh-server
-      state: present
+      yum:
+        name: openssh-server
+        state: present
 
     - name: Harden sshd_config
-    blockinfile:
-      path: "{{ sshd_config_path }}"
-      marker: "# {mark} ANSIBLE-HARDENING"
-      block: |
-        Port {{ sshd_port }}
-        Protocol {{ sshd_protocol }}
-        PermitRootLogin {{ sshd_permit_root_login }}
-        PasswordAuthentication {{ sshd_password_auth }}
-        PermitEmptyPasswords no
-        ChallengeResponseAuthentication no
-        UsePAM yes
-        X11Forwarding no
-        AllowTcpForwarding no
-        ClientAliveInterval {{ sshd_idle_timeout }}
-        ClientAliveCountMax 0
-        LoginGraceTime 30
-        MaxAuthTries {{ sshd_max_auth_tries }}
-        IgnoreRhosts yes
-        HostbasedAuthentication no
-        PermitUserEnvironment no
-        AllowAgentForwarding no
-        TCPKeepAlive yes
-        UseDNS no
-        Ciphers aes256-ctr,aes192-ctr,aes128-ctr
-        MACs hmac-sha2-512,hmac-sha2-256
-        KexAlgorithms curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
+      blockinfile:
+        path: "{{ sshd_config_path }}"
+        marker: "# {mark} ANSIBLE-HARDENING"
+        block: |
+          Port {{ sshd_port }}
+          Protocol {{ sshd_protocol }}
+          PermitRootLogin {{ sshd_permit_root_login }}
+          PasswordAuthentication {{ sshd_password_auth }}
+          PermitEmptyPasswords no
+          ChallengeResponseAuthentication no
+          UsePAM yes
+          X11Forwarding no
+          AllowTcpForwarding no
+          ClientAliveInterval {{ sshd_idle_timeout }}
+          ClientAliveCountMax 0
+          LoginGraceTime 30
+          MaxAuthTries {{ sshd_max_auth_tries }}
+          IgnoreRhosts yes
+          HostbasedAuthentication no
+          PermitUserEnvironment no
+          AllowAgentForwarding no
+          TCPKeepAlive yes
+          UseDNS no
+          Ciphers aes256-ctr,aes192-ctr,aes128-ctr
+          MACs hmac-sha2-512,hmac-sha2-256
+          KexAlgorithms curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
 
     - name: Ensure sshd is enabled and running
-    service:
-      name: sshd
-      state: started
-      enabled: yes
+      service:
+        name: sshd
+        state: started
+        enabled: yes
 
     # ------------------------------------------------------------
     # 5. Sysctl / kernel network hardening
     # ------------------------------------------------------------
     - name: Configure kernel parameters for network hardening
-    sysctl:
-      name: "{{ item.key }}"
-      value: "{{ item.value }}"
-      state: present
-      reload: yes
-    loop: "{{ sysctl_settings | dict2items }}"
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop: "{{ sysctl_settings | dict2items }}"
 
     # ------------------------------------------------------------
     # 6. Auditd configuration
     # ------------------------------------------------------------
     - name: Ensure auditd is enabled and running
-    service:
-      name: auditd
-      state: started
-      enabled: yes
+      service:
+        name: auditd
+        state: started
+        enabled: yes
 
     - name: Ensure auditd config has reasonable log size and actions
-    lineinfile:
-      path: /etc/audit/auditd.conf
-      regexp: "^{{ item.key }}\s*="
-      line: "{{ item.key }} = {{ item.value }}"
-      state: present
-    loop:
-      - { key: max_log_file, value: "50" }
-      - { key: max_log_file_action, value: "ROTATE" }
-      - { key: space_left_action, value: "SYSLOG" }
-      - { key: action_mail_acct, value: "root" }
-      - { key: admin_space_left_action, value: "SUSPEND" }
+      lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: "^{{ item.key }}\\s*="
+        line: "{{ item.key }} = {{ item.value }}"
+        state: present
+      loop:
+        - { key: max_log_file, value: "50" }
+        - { key: max_log_file_action, value: "ROTATE" }
+        - { key: space_left_action, value: "SYSLOG" }
+        - { key: action_mail_acct, value: "root" }
+        - { key: admin_space_left_action, value: "SUSPEND" }
 
-    # (Optional) Add some basic audit rules – extend per your policy/CIS
     - name: Ensure audit rules file exists
-    file:
-      path: /etc/audit/rules.d/hardening.rules
-      state: touch
-      owner: root
-      group: root
-      mode: '0600'
+      file:
+        path: /etc/audit/rules.d/hardening.rules
+        state: touch
+        owner: root
+        group: root
+        mode: '0600'
 
     - name: Add basic audit rules
-    blockinfile:
-      path: /etc/audit/rules.d/hardening.rules
-      marker: "# {mark} ANSIBLE-HARDENING"
-      block: |
-        -w /etc/passwd -p wa -k identity
-        -w /etc/shadow -p wa -k identity
-        -w /etc/group -p wa -k identity
-        -w /etc/gshadow -p wa -k identity
-        -w /etc/sudoers -p wa -k scope
-        -w /var/log/lastlog -p wa -k logins
-        -w /var/run/faillock/ -p wa -k logins
+      blockinfile:
+        path: /etc/audit/rules.d/hardening.rules
+        marker: "# {mark} ANSIBLE-HARDENING"
+        block: |
+          -w /etc/passwd -p wa -k identity
+          -w /etc/shadow -p wa -k identity
+          -w /etc/group -p wa -k identity
+          -w /etc/gshadow -p wa -k identity
+          -w /etc/sudoers -p wa -k scope
+          -w /var/log/lastlog -p wa -k logins
+          -w /var/run/faillock/ -p wa -k logins
 
     - name: Reload audit rules
-    command: augenrules --load
-    notify: restart auditd
+      command: augenrules --load
 
     # ------------------------------------------------------------
     # 7. Logging and time sync
     # ------------------------------------------------------------
     - name: Ensure rsyslog is enabled and running
-    service:
-      name: rsyslog
-      state: started
-      enabled: yes
+      service:
+        name: rsyslog
+        state: started
+        enabled: yes
 
     - name: Ensure chronyd is enabled and running
-    service:
-      name: chronyd
-      state: started
-      enabled: yes
+      service:
+        name: chronyd
+        state: started
+        enabled: yes
 
     # ------------------------------------------------------------
     # 8. Firewall baseline
     # ------------------------------------------------------------
     - name: Ensure firewalld is enabled and running
-    service:
-      name: firewalld
-      state: started
-      enabled: yes
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
 
     - name: Allow SSH in firewalld
-    firewalld:
-      service: ssh
-      permanent: yes
-      state: enabled
-      immediate: yes
+      firewalld:
+        service: ssh
+        permanent: yes
+        state: enabled
+        immediate: yes
 
     # ------------------------------------------------------------
-    # 9. Disable unnecessary services (example set)
+    # 9. Disable unnecessary services
     # ------------------------------------------------------------
     - name: Disable and stop unnecessary services
-    service:
-      name: "{{ item }}"
-      state: stopped
-      enabled: no
-    loop:
-      - telnet
-      - rsh
-      - rlogin
-      - rexec
-    ignore_errors: yes
-
-  handlers:
-    - name: restart auditd
       service:
-        name: auditd
-        state: restarted
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - telnet
+        - rsh
+        - rlogin
+        - rexec
+      ignore_errors: yes
+
+  #handlers:
+  #  - name: restart auditd
+  #    service:
+  #      name: auditd
+  #      state: restarted
