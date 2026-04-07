@@ -252,6 +252,12 @@
         - rexec
       ignore_errors: yes
 
+    - name: Save results to a Jinja template
+      template:
+        src: report.j2
+        dest: reports/report.html
+  
+
   #handlers:
   #  - name: restart auditd
   #    service:
