@@ -39,18 +39,17 @@ pipeline {
 
         stage('Run Updates') {
             steps {
-        echo "🚀 Running update playbook"
-        sh """
-            rm -rf ${env.REPORT_DIR}
-            mkdir -p ${env.REPORT_DIR}
+                echo "🚀 Running update playbook"
+                sh """
+                    rm -rf ${env.REPORT_DIR}
+                    mkdir -p ${env.REPORT_DIR}
 
-            echo "<html><body><h1>Hardening Report</h1><p>Build ${env.BUILD_NUMBER} completed.</p></body></html>" \
-                | tee ${env.REPORT_DIR}/${env.REPORT_FILE} > /dev/null
+                    echo "<html><body><h1>Hardening Report</h1><p>Build ${env.BUILD_NUMBER} completed.</p></body></html>" \
+                        | tee ${env.REPORT_DIR}/${env.REPORT_FILE} > /dev/null
 
-            ansible-playbook -i ${env.INVENTORY} -u ${env.ANSIBLE_USER} ${env.UPDATE_PLAYBOOK} \
-            --extra-vars="code_user=${env.ANSIBLE_USER} build_number=${env.BUILD_NUMBER} build_date=\$(date +%Y-%m-%d) build_status=Success"
-           """
-
+                    ansible-playbook -i ${env.INVENTORY} -u ${env.ANSIBLE_USER} ${env.UPDATE_PLAYBOOK} \
+                    --extra-vars="code_user=${env.ANSIBLE_USER} build_number=${env.BUILD_NUMBER} build_date=\$(date +%Y-%m-%d) build_status=Success"
+                """
             }
         }
 
@@ -62,6 +61,18 @@ pipeline {
                     reportFiles: "${env.REPORT_FILE}",
                     keepAll: true
                 ])
+            }
+        }
+
+        stage('Send Email Report') {
+            steps {
+                emailext(
+                    subject: "RHEL 7 Hardening Report - Build ${env.BUILD_NUMBER}",
+                    body: readFile("${env.REPORT_DIR}/${env.REPORT_FILE}"),
+                    mimeType: 'text/html',
+                    from: "richard.pasion18@gmail.com",
+                    to: "richard.pasion18@gmail.com"
+                )
             }
         }
     }
