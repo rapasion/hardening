@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RHEL 7 Hardening Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #2c3e50; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        th { background: #f4f4f4; }
+        .ok { color: green; font-weight: bold; }
+        .changed { color: #e67e22; font-weight: bold; }
+        .failed { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<h1>RHEL 7 Hardening Report</h1>
+
+<p><strong>Server:</strong> {{ inventory_hostname }}</p>
+<p><strong>Date:</strong> {{ ansible_date_time.date }} {{ ansible_date_time.time }}</p>
+
+<h2>Task Summary</h2>
+
+<table>
+    <tr>
+        <th>Task</th>
+        <th>Status</th>
+        <th>Details</th>
+    </tr>
+
+    {% macro row(name, result) %}
+        <tr>
+            <td>{{ name }}</td>
+            <td class="{% if result.failed %}failed{% elif result.changed %}changed{% else %}ok{% endif %}">
+                {% if result.failed %}FAILED{% elif result.changed %}CHANGED{% else %}OK{% endif %}
+            </td>
+            <td>
+                {% if result.msg %}{{ result.msg }}{% endif %}
+                {% if result.results %}{{ result.results }}{% endif %}
+            </td>
+        </tr>
+    {% endmacro %}
+
+    {{ row("System Update", update_result) }}
+
+</table>
+
+</body>
+</html>
