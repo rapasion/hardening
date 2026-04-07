@@ -204,7 +204,6 @@
 
     - name: Reload audit rules
       command: augenrules --load
-      notify: restart auditd
 
     # ------------------------------------------------------------
     # 7. Logging and time sync
@@ -252,8 +251,8 @@
         - rexec
       ignore_errors: yes
 
-  handlers:
-    - name: restart auditd
-      service:
-        name: auditd
-        state: restarted
+  #handlers:
+  #  - name: restart auditd
+  #    service:
+  #      name: auditd
+  #      state: restarted
