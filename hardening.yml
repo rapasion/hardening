@@ -43,6 +43,7 @@
       yum:
         name: "*"
         state: latest
+      register: update_result
 
     - name: Install baseline security packages
       yum:
