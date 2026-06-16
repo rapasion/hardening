@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RHEL 7 Hardening Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #2c3e50; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        th { background: #f4f4f4; }
+        .ok { color: green; font-weight: bold; }
+        .changed { color: #e67e22; font-weight: bold; }
+        .failed { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<h1>RHEL 7 Hardening Report</h1>
+<p><strong>Date:</strong> {{ ansible_date_time.date }} {{ ansible_date_time.time }}</p>
+
+<h2>Global Summary</h2>
+<ul>
+    <li><span class="ok">OK:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',false) | selectattr('result.changed','equalto',false) | list | length }}</li>
+    <li><span class="changed">Changed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.changed','equalto',true) | list | length }}</li>
+    <li><span class="failed">Failed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',true) | list | length }}</li>
+</ul>
+
+{% for host in host_results %}
+  <h2>Host: {{ host.host }}</h2>
+  <table>
+    <tr>
+      <th>Task</th>
+      <th>Status</th>
+      <th>Details</th>
+    </tr>
+    {% for task in host.tasks %}
+      <tr>
+        <td>{{ task.name }}</td>
+        <td class="{% if task.result.failed %}failed{% elif task.result.changed %}changed{% else %}ok{% endif %}">
+          {% if task.result.failed %}FAILED{% elif task.result.changed %}CHANGED{% else %}OK{% endif %}
+        </td>
+        <td>{{ task.result.msg }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+{% endfor %}
+
+</body>
+</html>
