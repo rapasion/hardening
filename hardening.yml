@@ -36,6 +36,11 @@
 
   tasks:
 
+    - name: Initialize host_results
+      set_fact:
+        host_results: []
+
+
     # ------------------------------------------------------------
     # 1. Package and update baseline
     # ------------------------------------------------------------
