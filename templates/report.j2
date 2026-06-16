@@ -21,9 +21,22 @@
 
 <h2>Global Summary</h2>
 <ul>
-    <li><span class="ok">OK:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',false) | selectattr('result.changed','equalto',false) | list | length }}</li>
-    <li><span class="changed">Changed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.changed','equalto',true) | list | length }}</li>
-    <li><span class="failed">Failed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',true) | list | length }}</li>
+    <li><span class="ok">OK:</span>
+        {{ host_results | map(attribute='tasks') | sum(start=[]) 
+           | selectattr('result.failed','==',false) 
+           | selectattr('result.changed','==',false) 
+           | list | length }}
+    </li>
+    <li><span class="changed">Changed:</span>
+        {{ host_results | map(attribute='tasks') | sum(start=[]) 
+           | selectattr('result.changed','==',true) 
+           | list | length }}
+    </li>
+    <li><span class="failed">Failed:</span>
+        {{ host_results | map(attribute='tasks') | sum(start=[]) 
+           | selectattr('result.failed','==',true) 
+           | list | length }}
+    </li>
 </ul>
 
 {% for host in host_results %}
