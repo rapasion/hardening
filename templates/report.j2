@@ -18,16 +18,15 @@
 
 <h1>RHEL 7 Hardening Report</h1>
 
-<p><strong>Server:</strong> {{ inventory_hostname }}</p>
 <p><strong>Date:</strong> {{ ansible_date_time.date }} {{ ansible_date_time.time }}</p>
 
-<h2>Task Summary</h2>
-
-<table>
+{% for host in host_results %}
+  <h2>Host: {{ host.host }}</h2>
+  <table>
     <tr>
-        <th>Task</th>
-        <th>Status</th>
-        <th>Details</th>
+      <th>Task</th>
+      <th>Status</th>
+      <th>Details</th>
     </tr>
 
     {% macro row(name, result) %}
@@ -43,9 +42,11 @@
         </tr>
     {% endmacro %}
 
-    {{ row("System Update", update_result) }}
-
-</table>
+    {% for task in host.tasks %}
+        {{ row(task.name, task.result) }}
+    {% endfor %}
+  </table>
+{% endfor %}
 
 </body>
 </html>
