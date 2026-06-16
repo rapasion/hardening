@@ -284,6 +284,12 @@
           { 'name': 'SSH Hardening', 'result': ssh_result_normalized }
           ]  
         } ] }}"
+
+    - name: Build global host_results
+      set_fact:
+        host_results: "{{ hostvars | dict2items | map(attribute='value.my_results') | select('defined') | list }}"
+      run_once: true
+      delegate_to: localhost
   
     - name: Save results to a Jinja template
       template:
