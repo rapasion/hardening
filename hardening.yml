@@ -259,6 +259,17 @@
         - rexec
       ignore_errors: yes
 
+    - name: Collect results per host
+      set_fact:
+        host_results: "{{ host_results + [ {
+        'host': inventory_hostname,
+        'tasks': [
+          { 'name': 'System Update', 'result': update_result },
+          { 'name': 'Firewall Configuration', 'result': firewall_result },
+          { 'name': 'SSH Hardening', 'result': ssh_result }
+          ]  
+        } ] }}"
+  
     - name: Save results to a Jinja template
       template:
         src: report.j2
