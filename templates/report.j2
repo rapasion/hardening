@@ -17,8 +17,14 @@
 <body>
 
 <h1>RHEL 7 Hardening Report</h1>
-
 <p><strong>Date:</strong> {{ ansible_date_time.date }} {{ ansible_date_time.time }}</p>
+
+<h2>Global Summary</h2>
+<ul>
+    <li><span class="ok">OK:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',false) | selectattr('result.changed','equalto',false) | list | length }}</li>
+    <li><span class="changed">Changed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.changed','equalto',true) | list | length }}</li>
+    <li><span class="failed">Failed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',true) | list | length }}</li>
+</ul>
 
 {% for host in host_results %}
   <h2>Host: {{ host.host }}</h2>
@@ -28,22 +34,14 @@
       <th>Status</th>
       <th>Details</th>
     </tr>
-
-    {% macro row(name, result) %}
-        <tr>
-            <td>{{ name }}</td>
-            <td class="{% if result.failed %}failed{% elif result.changed %}changed{% else %}ok{% endif %}">
-                {% if result.failed %}FAILED{% elif result.changed %}CHANGED{% else %}OK{% endif %}
-            </td>
-            <td>
-                {% if result.msg %}{{ result.msg }}{% endif %}
-                {% if result.results %}{{ result.results }}{% endif %}
-            </td>
-        </tr>
-    {% endmacro %}
-
     {% for task in host.tasks %}
-        {{ row(task.name, task.result) }}
+      <tr>
+        <td>{{ task.name }}</td>
+        <td class="{% if task.result.failed %}failed{% elif task.result.changed %}changed{% else %}ok{% endif %}">
+          {% if task.result.failed %}FAILED{% elif task.result.changed %}CHANGED{% else %}OK{% endif %}
+        </td>
+        <td>{{ task.result.msg }}</td>
+      </tr>
     {% endfor %}
   </table>
 {% endfor %}
