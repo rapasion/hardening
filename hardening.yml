@@ -258,6 +258,7 @@
         - rlogin
         - rexec
       ignore_errors: yes
+      register: service_disable
 
     - name: Normalize results
       set_fact:
