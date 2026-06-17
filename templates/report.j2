@@ -19,15 +19,23 @@
 <h1>RHEL 7 Hardening Report</h1>
 <p><strong>Date:</strong> {{ ansible_date_time.date }} {{ ansible_date_time.time }}</p>
 
+{% set all_tasks = host_results | map(attribute='tasks') | flatten %}
+
 <h2>Global Summary</h2>
 <ul>
-    <li><span class="ok">OK:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',false) | selectattr('result.changed','equalto',false) | list | length }}</li>
-    <li><span class="changed">Changed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.changed','equalto',true) | list | length }}</li>
-    <li><span class="failed">Failed:</span> {{ host_results | map(attribute='tasks') | sum(start=[]) | selectattr('result.failed','equalto',true) | list | length }}</li>
+    <li><span class="ok">OK:</span> {{ all_tasks | rejectattr('result.failed') | rejectattr('result.changed') | list | length }}</li>
+    <li><span class="changed">Changed:</span> {{ all_tasks | selectattr('result.changed') | list | length }}</li>
+    <li><span class="failed">Failed:</span> {{ all_tasks | selectattr('result.failed') | list | length }}</li>
 </ul>
 
 {% for host in host_results %}
   <h2>Host: {{ host.host }}</h2>
+  <p>
+    Host Summary:
+    OK={{ host.tasks | rejectattr('result.failed') | rejectattr('result.changed') | list | length }},
+    Changed={{ host.tasks | selectattr('result.changed') | list | length }},
+    Failed={{ host.tasks | selectattr('result.failed') | list | length }}
+  </p>
   <table>
     <tr>
       <th>Task</th>
@@ -40,9 +48,11 @@
         <td class="{% if task.result.failed %}failed{% elif task.result.changed %}changed{% else %}ok{% endif %}">
           {% if task.result.failed %}FAILED{% elif task.result.changed %}CHANGED{% else %}OK{% endif %}
         </td>
-        <td>{{ task.result.msg }}</td>
+        <td>{{ task.result.msg | default(task.result.stdout | default(task.result.results | default(''))) }}</td>
       </tr>
     {% endfor %}
+  </table>
+{% endfor %}
   </table>
 {% endfor %}
 
