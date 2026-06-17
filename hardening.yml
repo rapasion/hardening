@@ -272,7 +272,11 @@
         firewall_result_normalized:
           failed: "{{ firewall_result.failed | default(false) }}"
           changed: "{{ firewall_result.changed | default(false) }}"
-          msg: "{{ firewall_result.msg | default('') }}"  
+          msg: "{{ firewall_result.msg | default('') }}"
+        service_disable_normalized: >-
+          {{ service_disable.results
+             | map('combine', {'failed': false, 'changed': false})
+             | list }}
 
     - name: Collect results per host
       set_fact:
@@ -282,7 +286,7 @@
           { 'name': 'System Update', 'result': update_result_normalized },
           { 'name': 'Firewall Configuration', 'result': firewall_result_normalized },
           { 'name': 'SSH Hardening', 'result': ssh_result_normalized }
-          ]  
+          ] + service_disable_normalized 
         } ] }}"
 
     - name: Build global host_results
